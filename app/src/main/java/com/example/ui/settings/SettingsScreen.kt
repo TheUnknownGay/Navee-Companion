@@ -18,13 +18,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.BluetoothSearching
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothConnected
-import androidx.compose.material.icons.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.ElectricScooter
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
@@ -169,7 +169,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(imageVector = Icons.Default.BluetoothSearching, contentDescription = null, tint = NaveeCyan)
+                                Icon(imageVector = Icons.AutoMirrored.Filled.BluetoothSearching, contentDescription = null, tint = NaveeCyan)
                                 Text(
                                     text = "Recherche Trottinettes BLE",
                                     style = MaterialTheme.typography.titleMedium,
@@ -263,7 +263,7 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(imageVector = Icons.Default.MenuBook, contentDescription = null, tint = NaveeOrange)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, tint = NaveeOrange)
                         Text(
                             text = "Analyse & Faisabilité Technique",
                             style = MaterialTheme.typography.titleMedium,
