@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
                 ) { permissions ->
                     val allGranted = permissions.values.all { it }
                     if (allGranted && !isDemoMode) {
-                        viewModel.startBleScan(onlyNavee = false)
+                        viewModel.startBleScan()
                     }
                 }
 

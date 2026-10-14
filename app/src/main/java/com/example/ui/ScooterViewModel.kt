@@ -30,6 +30,7 @@ class ScooterViewModel(application: Application) : AndroidViewModel(application)
     val repository = ScooterRepository(application, viewModelScope)
 
     val currentScreen = androidx.compose.runtime.mutableStateOf(AppScreen.DASHBOARD)
+    val onlyNaveeFilter = androidx.compose.runtime.mutableStateOf(true)
 
     val telemetry: StateFlow<ScooterTelemetry> = repository.activeTelemetry
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ScooterTelemetry())
@@ -46,8 +47,25 @@ class ScooterViewModel(application: Application) : AndroidViewModel(application)
     val bleConnectionStatus: StateFlow<ConnectionStatus> = repository.bleManager.connectionStatus
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ConnectionStatus.DISCONNECTED)
 
+    val connectingDeviceAddress: StateFlow<String?> = repository.bleManager.connectingDeviceAddress
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val connectionError: StateFlow<String?> = repository.bleManager.connectionError
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     val allTrips: StateFlow<List<TripEntity>> = repository.allTrips
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        // Rediriger vers le tableau de bord dès que la trottinette réelle est connectée
+        viewModelScope.launch {
+            repository.bleManager.connectionStatus.collect { status ->
+                if (status == ConnectionStatus.CONNECTED && !repository.isDemoMode.value) {
+                    currentScreen.value = AppScreen.DASHBOARD
+                }
+            }
+        }
+    }
 
     // Trip recording states
     var isTripRecording = androidx.compose.runtime.mutableStateOf(false)
@@ -102,8 +120,8 @@ class ScooterViewModel(application: Application) : AndroidViewModel(application)
         repository.simulateBrake(pressed)
     }
 
-    fun startBleScan(onlyNavee: Boolean = false) {
-        repository.startBleScan(onlyNavee)
+    fun startBleScan() {
+        repository.startBleScan()
     }
 
     fun stopBleScan() {
@@ -136,7 +154,7 @@ class ScooterViewModel(application: Application) : AndroidViewModel(application)
         val distance = (telemetry.value.totalOdometerKm - startOdo).coerceAtLeast(0.0f)
         val avgSpeed = if (durationSec > 0) (distance / (durationSec / 3600.0f)).coerceAtLeast(0.0f) else 0.0f
         val endBatt = telemetry.value.batteryPercent
-        val energyWh = distance * 18.5f // ~18.5 Wh/km consommation moyenne NT5 Max
+        val energyWh = distance * 18.5f
 
         viewModelScope.launch {
             repository.recordTrip(

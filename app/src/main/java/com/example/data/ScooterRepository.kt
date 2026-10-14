@@ -119,7 +119,7 @@ class ScooterRepository(
         } else {
             simulator.stopSimulation()
             _activeTelemetry.value = bleManager.telemetry.value
-            bleManager.startScan(onlyNavee = false)
+            bleManager.startScan()
         }
     }
 
@@ -184,8 +184,8 @@ class ScooterRepository(
         }
     }
 
-    fun startBleScan(onlyNavee: Boolean = false) {
-        bleManager.startScan(onlyNavee)
+    fun startBleScan() {
+        bleManager.startScan()
     }
 
     fun stopBleScan() {

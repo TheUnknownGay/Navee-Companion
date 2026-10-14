@@ -1,6 +1,8 @@
 package com.example.ui.settings
 
 import android.annotation.SuppressLint
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,17 +23,23 @@ import androidx.compose.material.icons.automirrored.filled.BluetoothSearching
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothConnected
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ElectricScooter
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -41,15 +48,19 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ble.DiscoveredBleDevice
 import com.example.model.ConnectionStatus
+import com.example.ui.AppScreen
 import com.example.ui.ScooterViewModel
 import com.example.ui.theme.NaveeCyan
 import com.example.ui.theme.NaveeGreen
@@ -66,6 +77,17 @@ fun SettingsScreen(
     discoveredDevices: List<DiscoveredBleDevice>,
     modifier: Modifier = Modifier
 ) {
+    val connectingAddress by viewModel.connectingDeviceAddress.collectAsStateWithLifecycle()
+    val connectionError by viewModel.connectionError.collectAsStateWithLifecycle()
+    val telemetry by viewModel.telemetry.collectAsStateWithLifecycle()
+    val onlyNavee = viewModel.onlyNaveeFilter.value
+
+    val filteredDevices = if (onlyNavee) {
+        discoveredDevices.filter { it.isNavee }
+    } else {
+        discoveredDevices
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -178,10 +200,16 @@ fun SettingsScreen(
                             }
 
                             if (connectionStatus == ConnectionStatus.SCANNING) {
-                                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp, color = NaveeCyan)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = NaveeCyan)
+                                    Text("Scan...", fontSize = 12.sp, color = NaveeCyan)
+                                }
                             } else {
                                 Button(
-                                    onClick = { viewModel.startBleScan(onlyNavee = false) },
+                                    onClick = { viewModel.startBleScan() },
                                     colors = ButtonDefaults.buttonColors(containerColor = NaveeCyan),
                                     modifier = Modifier.testTag("btn_scan_ble")
                                 ) {
@@ -192,64 +220,242 @@ fun SettingsScreen(
                             }
                         }
 
-                        if (discoveredDevices.isEmpty()) {
-                            Text(
-                                text = "Aucun appareil détecté pour le moment.\nVérifiez que la NAVEE NT5 Max est allumée et à proximité.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        // Filter toggle (Exclusive NAVEE filter)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            FilterChip(
+                                selected = onlyNavee,
+                                onClick = { viewModel.onlyNaveeFilter.value = true },
+                                label = { Text("Appareils NAVEE uniquement", fontSize = 11.sp) },
+                                leadingIcon = {
+                                    Icon(imageVector = Icons.Default.ElectricScooter, contentDescription = null, modifier = Modifier.size(14.dp))
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = NaveeCyan.copy(alpha = 0.2f),
+                                    selectedLabelColor = NaveeCyan
+                                )
                             )
+
+                            FilterChip(
+                                selected = !onlyNavee,
+                                onClick = { viewModel.onlyNaveeFilter.value = false },
+                                label = { Text("Tous les périphériques", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+
+                        // Connection Error Notification Banner
+                        AnimatedVisibility(visible = connectionError != null) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.Top,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Error,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Column {
+                                        Text(
+                                            text = "Échec de connexion :",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                        Text(
+                                            text = connectionError ?: "",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onErrorContainer,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Device List
+                        if (filteredDevices.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (onlyNavee) {
+                                        "Aucune trottinette NAVEE détectée.\nVérifiez qu'elle est allumée et cliquez sur 'Scanner'."
+                                    } else {
+                                        "Aucun appareil Bluetooth détecté."
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
                         } else {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                discoveredDevices.forEach { dev ->
-                                    val isNavee = dev.name.contains("NAVEE", ignoreCase = true) || dev.name.contains("Brightway", ignoreCase = true)
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                            .padding(10.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                filteredDevices.forEach { dev ->
+                                    val isCurrentConnecting = connectingAddress == dev.address
+                                    val isCurrentConnected = connectionStatus == ConnectionStatus.CONNECTED && telemetry.deviceMac == dev.address
+
+                                    Card(
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isCurrentConnected) {
+                                                NaveeGreen.copy(alpha = 0.15f)
+                                            } else {
+                                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                            }
+                                        ),
+                                        border = if (isCurrentConnected) BorderStroke(1.dp, NaveeGreen) else null
                                     ) {
-                                        Column {
-                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                Text(
-                                                    text = dev.name,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = if (isNavee) NaveeCyan else MaterialTheme.colorScheme.onSurface
-                                                )
-                                                if (isNavee) {
-                                                    Surface(shape = RoundedCornerShape(4.dp), color = NaveeCyan.copy(alpha = 0.2f)) {
-                                                        Text("NAVEE", fontSize = 9.sp, color = NaveeCyan, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                    Text(
+                                                        text = dev.name,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (dev.isNavee) NaveeCyan else MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    if (dev.isNavee) {
+                                                        Surface(shape = RoundedCornerShape(4.dp), color = NaveeCyan.copy(alpha = 0.2f)) {
+                                                            Text("NAVEE", fontSize = 9.sp, color = NaveeCyan, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                                                        }
                                                     }
                                                 }
+                                                Text(
+                                                    text = "${dev.address} · ${dev.rssi} dBm",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    fontSize = 11.sp
+                                                )
                                             }
-                                            Text(
-                                                text = "${dev.address} · ${dev.rssi} dBm",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = 11.sp
-                                            )
-                                        }
 
-                                        Button(
-                                            onClick = { viewModel.connectToDevice(dev.device) },
-                                            colors = ButtonDefaults.buttonColors(containerColor = if (isNavee) NaveeCyan else MaterialTheme.colorScheme.primary),
-                                            shape = RoundedCornerShape(10.dp)
-                                        ) {
-                                            Text("Connecter", fontSize = 12.sp)
+                                            // Connection Action Button with full visual state
+                                            if (isCurrentConnected) {
+                                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                    OutlinedButton(
+                                                        onClick = { viewModel.disconnectBle() },
+                                                        shape = RoundedCornerShape(10.dp)
+                                                    ) {
+                                                        Text("Déconnecter", fontSize = 11.sp, color = NaveeRed)
+                                                    }
+                                                }
+                                            } else if (isCurrentConnecting) {
+                                                Button(
+                                                    onClick = {},
+                                                    enabled = false,
+                                                    colors = ButtonDefaults.buttonColors(containerColor = NaveeCyan.copy(alpha = 0.5f)),
+                                                    shape = RoundedCornerShape(10.dp)
+                                                ) {
+                                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = Color.White)
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text("Connexion...", fontSize = 11.sp)
+                                                }
+                                            } else {
+                                                Button(
+                                                    onClick = { viewModel.connectToDevice(dev.device) },
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = if (dev.isNavee) NaveeCyan else MaterialTheme.colorScheme.primary
+                                                    ),
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    modifier = Modifier.testTag("btn_connect_${dev.address}")
+                                                ) {
+                                                    Text("Connecter", fontSize = 12.sp)
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
+
+                        // Success shortcut banner
+                        if (connectionStatus == ConnectionStatus.CONNECTED) {
+                            Button(
+                                onClick = { viewModel.selectScreen(AppScreen.DASHBOARD) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = NaveeGreen),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Ouvrir le Tableau de Bord (Cockpit)")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. SPECIAL GUIDANCE CARD: NAVEE PROTOCOL & ACCOUNT BINDING
+            item {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, NaveeCyan.copy(alpha = 0.3f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(imageVector = Icons.Default.VpnKey, contentDescription = null, tint = NaveeCyan)
+                            Text(
+                                text = "Protocole NAVEE : Appairage & Liaison Compte",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Text(
+                            text = "Les trottinettes NAVEE / Brightway intègrent des règles de sécurité Bluetooth strictes :",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Text(
+                            text = "1. Canal exclusif : La trottinette ne peut communiquer qu'avec un seul smartphone à la fois. Si l'application officielle NAVEE est ouverte en arrière-plan, elle verrouille le canal et empêche toute connexion.\n" +
+                                    "➜ Fermez complètement l'application officielle NAVEE (ou 'Forcer l'arrêt' dans les paramètres Android).\n\n" +
+                                    "2. Réinitialisation de l'appairage Bluetooth (Sans perte de données) :\n" +
+                                    "➜ Allumez la trottinette.\n" +
+                                    "➜ Maintenez le levier de frein gauche enfoncé.\n" +
+                                    "➜ Appuyez 5 fois rapidement sur le bouton Power.\n" +
+                                    "➜ La trottinette émet un bip et le voyant Bluetooth clignote : elle accepte alors immédiatement la connexion de NAVEE Companion sans contrôle de compte cloud !",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
                     }
                 }
             }
         }
 
-        // 3. TABLEAU DE FAISABILITÉ & FAITS VÉRIFIÉS
+        // 4. TABLEAU DE FAISABILITÉ & FAITS VÉRIFIÉS
         item {
             Card(
                 shape = RoundedCornerShape(20.dp),
@@ -309,7 +515,7 @@ fun SettingsScreen(
             }
         }
 
-        // 4. RÉGLEMENTATION ET SÉCURITÉ
+        // 5. RÉGLEMENTATION ET SÉCURITÉ
         item {
             Card(
                 shape = RoundedCornerShape(20.dp),
