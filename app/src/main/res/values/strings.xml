@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">NAVEE Companion</string>
+    <string name="title_dashboard">Tableau de bord</string>
+    <string name="title_controls">Contrôles &amp; Vitesse</string>
+    <string name="title_telemetry">Télémétrie</string>
+    <string name="title_trips">Trajets &amp; Stats</string>
+    <string name="title_diagnostics">Diagnostic BLE</string>
+    <string name="title_settings">Paramètres &amp; Sécurité</string>
+    <string name="model_name">NAVEE NT5 Max</string>
+</resources>

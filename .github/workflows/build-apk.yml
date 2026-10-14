@@ -1,0 +1,92 @@
+name: Build & Release NAVEE Companion APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Make Gradlew Executable
+        run: chmod +x ./gradlew
+
+      - name: Restore or Generate Debug Keystore
+        run: |
+          if [ -f "debug.keystore.base64" ]; then
+            base64 -d debug.keystore.base64 > debug.keystore
+          elif [ ! -f "debug.keystore" ]; then
+            keytool -genkeypair -v -keystore debug.keystore \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Run Unit & Protocol Tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
+      - name: Build Debug APK
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Prepare APK Output
+        run: |
+          mkdir -p release-output
+          cp app/build/outputs/apk/debug/app-debug.apk release-output/NAVEE-Companion-debug.apk
+          echo "APK_PATH=release-output/NAVEE-Companion-debug.apk" >> $GITHUB_ENV
+
+      - name: Upload APK as Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NAVEE-Companion-debug-apk
+          path: release-output/NAVEE-Companion-debug.apk
+          retention-days: 90
+
+      - name: Create GitHub Release (On Tag Push)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          files: release-output/NAVEE-Companion-debug.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ### NAVEE Companion — Application Android pour NAVEE NT5 Max 🛴
+            
+            **Nouveautés & Contenu de cette version :**
+            - Tableau de bord avec modèle 2.5D/3D interactif et compteur de vitesse en temps réel.
+            - Profils de vitesse (15, 20, 25 km/h et Boost >25 km/h).
+            - Commande de démarrage direct à 0 km/h (Zero-Start).
+            - Télémétrie en direct (Tension 48V, Watts, Températures).
+            - Historique local des trajets (Room Database).
+            - Renifleur de paquets BLE et répertoire d'erreurs Brightway.
+            
+            Téléchargez le fichier **`NAVEE-Companion-debug.apk`** ci-dessous et installez-le sur votre smartphone Android.

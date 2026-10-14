@@ -1,0 +1,8 @@
+{
+  "name": "NAVEE Companion",
+  "description": "Application avancée pour NAVEE NT5 Max avec télémétrie BLE, profils de vitesse, démarrage 0 km/h et tableau de bord 3D interactif.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
